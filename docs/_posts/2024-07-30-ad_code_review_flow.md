@@ -1,0 +1,473 @@
+---
+title: "AI 코드 리뷰 플로우"
+categories:
+  - ai
+layout: single
+---
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 코드 리뷰 플로우</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 40px;
+            font-size: 2.5em;
+        }
+
+        .flow-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .step {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border-left: 5px solid #667eea;
+            position: relative;
+        }
+
+        .step.highlight {
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            border-left-color: #f093fb;
+            border-left-width: 8px;
+        }
+
+        .step-number {
+            position: absolute;
+            left: -15px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2em;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        .step-title {
+            font-size: 1.5em;
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-weight: bold;
+            padding-left: 30px;
+        }
+
+        .step-description {
+            color: #4a5568;
+            line-height: 1.8;
+            padding-left: 30px;
+            font-size: 1.1em;
+        }
+
+        .arrow {
+            text-align: center;
+            font-size: 2em;
+            color: #667eea;
+            margin: 10px 0;
+        }
+
+        .code-block {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95em;
+        }
+
+        .code-block pre {
+            margin: 0;
+        }
+
+        .highlight-box {
+            background: #fff5f5;
+            border: 2px solid #fc8181;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .highlight-box h3 {
+            color: #c53030;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .api-call {
+            background: #f0fff4;
+            border-left: 4px solid #48bb78;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+
+        .api-call strong {
+            color: #2f855a;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .comparison-item {
+            padding: 20px;
+            border-radius: 10px;
+            background: #f7fafc;
+        }
+
+        .comparison-item h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .comparison-item.wrong {
+            background: #fff5f5;
+            border: 2px solid #fc8181;
+        }
+
+        .comparison-item.correct {
+            background: #f0fff4;
+            border: 2px solid #48bb78;
+        }
+
+        .label {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin: 5px 5px 5px 0;
+        }
+
+        .label.wrong {
+            background: #fc8181;
+            color: white;
+        }
+
+        .label.correct {
+            background: #48bb78;
+            color: white;
+        }
+
+        .key-point {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin: 30px 0;
+            box-shadow: 0 10px 30px rgba(240, 147, 251, 0.3);
+        }
+
+        .key-point h2 {
+            margin-bottom: 15px;
+            font-size: 1.8em;
+        }
+
+        .key-point ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .key-point li {
+            padding: 8px 0;
+            padding-left: 30px;
+            position: relative;
+            line-height: 1.6;
+        }
+
+        .key-point li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+            font-size: 1.3em;
+        }
+
+        @media (max-width: 768px) {
+            .comparison {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🔍 AI 코드 리뷰 전체 플로우</h1>
+
+    <div class="flow-container">
+        <div class="step">
+            <div class="step-number">1</div>
+            <div class="step-title">📤 GitLab CI/CD → MCP 서버</div>
+            <div class="step-description">
+                MR이 생성되면 CI/CD가 트리거되어 MCP 서버로 요청을 보냅니다.
+
+                <div class="code-block"><pre>POST http://mcp-server:3001/review-mr
+{
+  "project_id": "123",
+  "mr_iid": "45",
+  "base_sha": "abc123...",
+  "head_sha": "def456...",
+  "start_sha": "ghi789...",
+  "gitlab_token": "glpat-xxxxx"
+}</pre></div>
+
+                <span class="label wrong">❌ 파일 내용 포함 안 됨</span>
+                <span class="label correct">✅ 프로젝트 정보만 포함</span>
+            </div>
+        </div>
+
+        <div class="arrow">↓</div>
+
+        <div class="step">
+            <div class="step-number">2</div>
+            <div class="step-title">📋 MCP 서버 → GitLab API (MR 변경사항 조회)</div>
+            <div class="step-description">
+                MCP 서버가 GitLab API를 호출하여 어떤 파일이 변경되었는지 확인합니다.
+
+                <div class="api-call">
+                    <strong>GitLab API 호출:</strong>
+                    GET /api/v4/projects/123/merge_requests/45/changes
+                </div>
+
+                <div class="code-block"><pre>// 응답 예시 (diff만 포함)
+{
+  "changes": [
+    {
+      "old_path": "src/UserService.js",
+      "new_path": "src/UserService.js",
+      "diff": "@@ -10,3 +10,5 @@\n-old line\n+new line"
+    }
+  ]
+}</pre></div>
+
+                <span class="label wrong">❌ 파일 전체 내용 없음</span>
+                <span class="label correct">✅ diff만 포함 (변경 사항만)</span>
+            </div>
+        </div>
+
+        <div class="arrow">↓</div>
+
+        <div class="step highlight">
+            <div class="step-number">3</div>
+            <div class="step-title">🔥 MCP 서버 → GitLab API (파일 전체 내용 조회)</div>
+            <div class="step-description">
+                <strong>바로 여기가 핵심입니다!</strong> AST 분석을 위해 각 변경된 파일의 전체 내용을 다시 가져옵니다.
+
+                <div class="api-call">
+                    <strong>GitLab API 호출 (각 파일마다):</strong>
+                    GET /api/v4/projects/123/repository/files/src%2FUserService.js/raw?ref=feature-branch
+                </div>
+
+                <div class="code-block"><pre>// server.js 코드
+const fileContent = await gitlabClient.getFileContent(
+  project_id,
+  new_path,              // "src/UserService.js"
+  mr.source_branch       // "feature-branch"
+);
+
+// 응답: 파일 전체 내용
+`import UserRepository from './UserRepository';
+
+export class UserService {
+  constructor(repo) {
+    this.repo = repo;
+  }
+
+  async findUser(id) {
+    return await this.repo.findById(id);
+  }
+}`</pre></div>
+
+                <span class="label correct">✅ 파일 전체 내용 포함</span>
+                <span class="label correct">✅ gitlab_token으로 인증</span>
+            </div>
+        </div>
+
+        <div class="arrow">↓</div>
+
+        <div class="step">
+            <div class="step-number">4</div>
+            <div class="step-title">🌳 AST 분석 수행</div>
+            <div class="step-description">
+                파일 전체 내용을 Babel parser로 파싱하여 코드 구조를 분석합니다.
+
+                <div class="code-block"><pre>// CodeAnalyzer로 AST 생성
+const analyzer = new CodeAnalyzer(filePath, fileContent);
+analyzer.analyze();
+
+// 결과
+{
+  imports: [
+    { source: './UserRepository', ... }
+  ],
+  exportedSymbols: [
+    { type: 'class', name: 'UserService' }
+  ],
+  functionCalls: [
+    { name: 'this.repo.findById', line: 8 }
+  ]
+}</pre></div>
+            </div>
+        </div>
+
+        <div class="arrow">↓</div>
+
+        <div class="step">
+            <div class="step-number">5</div>
+            <div class="step-title">🔗 의존성 추적 (선택사항)</div>
+            <div class="step-description">
+                enable_dependency_tracking=true인 경우, import된 파일들도 재귀적으로 가져옵니다.
+
+                <div class="code-block"><pre>// UserService.js imports UserRepository
+→ GitLab API 호출: UserRepository.js 전체 내용 가져오기
+  → UserRepository imports DatabaseConfig
+    → GitLab API 호출: DatabaseConfig.js 전체 내용 가져오기
+      (최대 깊이 3까지)</pre></div>
+
+                <span class="label wrong">⚠️ API 호출 많음 (느림)</span>
+                <span class="label correct">✅ 전체 컨텍스트 파악</span>
+            </div>
+        </div>
+
+        <div class="arrow">↓</div>
+
+        <div class="step">
+            <div class="step-number">6</div>
+            <div class="step-title">🤖 Gemini AI에게 리뷰 요청</div>
+            <div class="step-description">
+                수집한 모든 정보를 Gemini AI에게 전달합니다.
+
+                <div class="code-block"><pre>프롬프트 구성:
+- 변경된 라인들 (diff에서 추출)
+- 파일 전체 diff (컨텍스트)
+- AST 분석 결과 (imports, exports, 클래스 구조)
+- 의존성 정보 (연관된 파일들)
+
+→ Gemini AI가 종합적으로 분석하여 리뷰 생성</pre></div>
+            </div>
+        </div>
+
+        <div class="arrow">↓</div>
+
+        <div class="step">
+            <div class="step-number">7</div>
+            <div class="step-title">💬 GitLab MR에 코멘트 작성</div>
+            <div class="step-description">
+                생성된 리뷰를 GitLab API를 통해 MR에 코멘트로 작성합니다.
+
+                <div class="api-call">
+                    <strong>GitLab API 호출:</strong>
+                    POST /api/v4/projects/123/merge_requests/45/discussions
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="key-point">
+        <h2>🎯 핵심 포인트</h2>
+        <ul>
+            <li><strong>diff만으로는 AST 분석 불가능</strong> - 파일 전체 구조를 알 수 없음</li>
+            <li><strong>GitLab API로 파일 전체 내용을 가져옴</strong> - repository/files/:path/raw 엔드포인트 사용</li>
+            <li><strong>gitlab_token으로 인증</strong> - Private 저장소 접근 가능</li>
+            <li><strong>각 변경된 파일마다 1번씩 API 호출</strong> - 10개 파일 = 10번 호출</li>
+            <li><strong>의존성 추적 시 추가 API 호출</strong> - 연관 파일당 1번씩 더 호출</li>
+        </ul>
+    </div>
+
+    <div class="comparison">
+        <div class="comparison-item wrong">
+            <h3>❌ 오해하기 쉬운 방식</h3>
+            <div class="code-block"><pre>CI/CD가 파일 내용을
+직접 전송
+    ↓
+MCP 서버가 받아서
+AST 분석</pre></div>
+            <p style="margin-top: 15px; color: #c53030;">
+                <strong>문제:</strong> CI/CD에서 모든 파일을 읽어서 전송하면 너무 무거움
+            </p>
+        </div>
+
+        <div class="comparison-item correct">
+            <h3>✅ 실제 동작 방식</h3>
+            <div class="code-block"><pre>CI/CD는 프로젝트 정보만 전송
+    ↓
+MCP 서버가 GitLab API로
+필요한 파일만 조회
+    ↓
+AST 분석</pre></div>
+            <p style="margin-top: 15px; color: #2f855a;">
+                <strong>장점:</strong> CI/CD는 가볍고, MCP 서버가 필요할 때만 파일 조회
+            </p>
+        </div>
+    </div>
+
+    <div class="highlight-box">
+        <h3>⚡ 성능 고려사항</h3>
+        <p style="line-height: 1.8; color: #2d3748; margin-top: 10px;">
+            <strong>AST 분석 활성화 시:</strong><br>
+            • 변경된 파일 수만큼 GitLab API 호출 (10개 파일 = 10번)<br>
+            • 파일당 약 100-200ms 추가<br>
+            • 총 1-2초 정도 추가 시간<br><br>
+
+            <strong>의존성 추적 활성화 시:</strong><br>
+            • 연관 파일까지 재귀적으로 조회 (최대 20개)<br>
+            • 파일당 약 100-200ms 추가<br>
+            • 총 2-4초 추가 시간 (깊이에 따라 증가)<br><br>
+
+            <strong>결론:</strong> AST 분석은 부담이 적어 기본 활성화 권장, 의존성 추적은 필요 시에만 사용
+        </p>
+    </div>
+</div>
+</body>
+</html>
