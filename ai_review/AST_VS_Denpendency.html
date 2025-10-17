@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AST vs Dependency Tracking</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            padding: 30px;
+            color: white;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .card h2 {
+            font-size: 1.8em;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card .icon {
+            font-size: 1.5em;
+        }
+
+        .card .description {
+            font-size: 1.1em;
+            margin-bottom: 20px;
+            opacity: 0.95;
+            line-height: 1.6;
+        }
+
+        .features {
+            background: rgba(255,255,255,0.15);
+            border-radius: 10px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .features ul {
+            list-style: none;
+        }
+
+        .features li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+            line-height: 1.6;
+        }
+
+        .features li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+            color: #48bb78;
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 30px;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .comparison-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: left;
+            font-size: 1.1em;
+        }
+
+        .comparison-table td {
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .comparison-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .comparison-table tr:hover {
+            background: #f7fafc;
+        }
+
+        .label {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 8px;
+        }
+
+        .value {
+            color: #4a5568;
+            line-height: 1.6;
+        }
+
+        .code-example {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+        }
+
+        .code-example pre {
+            margin: 0;
+            white-space: pre-wrap;
+        }
+
+        .highlight {
+            background: rgba(102, 126, 234, 0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .section-title {
+            font-size: 1.8em;
+            color: #2d3748;
+            margin-top: 50px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .analogy {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin: 30px 0;
+            box-shadow: 0 10px 30px rgba(240, 147, 251, 0.3);
+        }
+
+        .analogy h3 {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+        }
+
+        .analogy p {
+            font-size: 1.1em;
+            line-height: 1.8;
+            opacity: 0.95;
+        }
+
+        @media (max-width: 768px) {
+            .comparison-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌳 AST vs 🔗 Dependency Tracking</h1>
+        <p class="subtitle">코드 분석의 두 가지 접근 방식</p>
+
+        <div class="comparison-grid">
+            <div class="card">
+                <h2><span class="icon">🌳</span> AST 분석</h2>
+                <p class="description">단일 파일 내부의 코드 구조를 파악합니다</p>
+                <div class="features">
+                    <ul>
+                        <li>파일 1개만 분석</li>
+                        <li>import/export 목록</li>
+                        <li>클래스 상속 구조</li>
+                        <li>함수 호출 패턴</li>
+                        <li>변수 선언 추적</li>
+                        <li>매우 빠름 (~100ms)</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2><span class="icon">🔗</span> Dependency Tracking</h2>
+                <p class="description">파일들 간의 관계를 재귀적으로 추적합니다</p>
+                <div class="features">
+                    <ul>
+                        <li>여러 파일 탐색 (최대 20개)</li>
+                        <li>의존 체인 구축</li>
+                        <li>순환 참조 감지</li>
+                        <li>영향 범위 분석</li>
+                        <li>재귀 깊이 제어 (최대 3)</li>
+                        <li>상대적으로 느림 (수초~수십초)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="analogy">
+            <h3>🏢 Java 개발자를 위한 비유</h3>
+            <p>
+                <strong>AST 분석</strong> = <span class="highlight">javac의 파싱 단계</span><br>
+                .java 파일 하나를 읽어서 클래스 구조, 메서드, 필드를 파악합니다.<br>
+                IntelliJ의 "Structure" 창에서 보는 것과 비슷합니다.<br><br>
+
+                <strong>Dependency Tracking</strong> = <span class="highlight">Maven/Gradle 의존성 그래프</span><br>
+                pom.xml이나 build.gradle을 따라가며 전체 의존성 트리를 구축합니다.<br>
+                mvn dependency:tree 명령어로 보는 것과 비슷합니다.
+            </p>
+        </div>
+
+        <h2 class="section-title">📊 상세 비교</h2>
+
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th style="width: 30%">특성</th>
+                    <th style="width: 35%">AST 분석</th>
+                    <th style="width: 35%">Dependency Tracking</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="label">분석 범위</td>
+                    <td class="value">파일 1개 (내부 구조)</td>
+                    <td class="value">파일 N개 (관계망)</td>
+                </tr>
+                <tr>
+                    <td class="label">실행 시간</td>
+                    <td class="value">매우 빠름 (~100-200ms/파일)</td>
+                    <td class="value">느림 (수초~수십초)</td>
+                </tr>
+                <tr>
+                    <td class="label">메모리 사용</td>
+                    <td class="value">낮음 (파일 하나만)</td>
+                    <td class="value">높음 (여러 파일 + 그래프)</td>
+                </tr>
+                <tr>
+                    <td class="label">감지 가능한 문제</td>
+                    <td class="value">
+                        - 문법 오류<br>
+                        - 사용하지 않는 import<br>
+                        - 잘못된 타입 사용<br>
+                        - 코딩 컨벤션 위반
+                    </td>
+                    <td class="value">
+                        - 순환 참조<br>
+                        - 영향 범위<br>
+                        - 중복 의존성<br>
+                        - 아키텍처 위반
+                    </td>
+                </tr>
+                <tr>
+                    <td class="label">GitLab API 호출</td>
+                    <td class="value">1번 (현재 파일만)</td>
+                    <td class="value">N번 (연관 파일 모두)</td>
+                </tr>
+                <tr>
+                    <td class="label">언제 사용?</td>
+                    <td class="value">✅ 기본적으로 항상 사용</td>
+                    <td class="value">⚠️ 핵심 모듈 변경 시만</td>
+                </tr>
+                <tr>
+                    <td class="label">Java 도구 비유</td>
+                    <td class="value">
+                        - javac (컴파일러)<br>
+                        - Checkstyle<br>
+                        - PMD
+                    </td>
+                    <td class="value">
+                        - Maven Dependency Plugin<br>
+                        - JDepend<br>
+                        - ArchUnit
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2 class="section-title">💻 코드 예시</h2>
+
+        <div class="code-example">
+            <pre>
+<span style="color: #48bb78;">// UserController.js (변경된 파일)</span>
+import UserService from './UserService';
+
+export class UserController {
+  async getUser(id) {
+    return await this.userService.findUser(id);
+  }
+}
+
+<span style="color: #f6ad55;">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+
+<span style="color: #f093fb;">🌳 AST 분석 결과:</span>
+{
+  imports: [
+    { source: './UserService', name: 'UserService' }
+  ],
+  exportedSymbols: [
+    { type: 'class', name: 'UserController' }
+  ],
+  functionCalls: [
+    { name: 'this.userService.findUser', line: 5 }
+  ]
+}
+
+<span style="color: #90cdf4;">✓ 파일 1개만 분석</span>
+<span style="color: #90cdf4;">✓ UserService를 import 하는 것만 확인</span>
+
+<span style="color: #f6ad55;">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+
+<span style="color: #f093fb;">🔗 Dependency Tracking 결과:</span>
+UserController.js
+    ↓ imports
+UserService.js        <span style="color: #68d391;">← 파일 내용 가져옴</span>
+    ↓ imports
+UserRepository.js     <span style="color: #68d391;">← 파일 내용 가져옴</span>
+    ↓ imports
+DatabaseConfig.js     <span style="color: #68d391;">← 파일 내용 가져옴</span>
+
+<span style="color: #90cdf4;">✓ 관련 파일 4개 모두 분석</span>
+<span style="color: #90cdf4;">✓ 의존 체인 전체를 AI에게 제공</span>
+<span style="color: #90cdf4;">✓ 순환 참조 여부 확인</span>
+            </pre>
+        </div>
+
+        <h2 class="section-title">🎯 실전 사용 전략</h2>
+
+        <div style="background: #edf2f7; padding: 30px; border-radius: 15px; margin-top: 20px;">
+            <h3 style="color: #2d3748; margin-bottom: 15px;">📋 권장 설정</h3>
+
+            <div style="margin-bottom: 20px;">
+                <strong style="color: #2d3748;">일반 MR (파일 1-10개):</strong>
+                <pre style="background: white; padding: 15px; border-radius: 8px; margin-top: 10px;">
+enable_ast_analysis: <span style="color: #48bb78;">true</span>   ← 항상 켜기
+enable_dependency_tracking: <span style="color: #f56565;">false</span>  ← 끄기 (불필요)</pre>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <strong style="color: #2d3748;">핵심 모듈 변경 (서비스 레이어, 공통 유틸):</strong>
+                <pre style="background: white; padding: 15px; border-radius: 8px; margin-top: 10px;">
+enable_ast_analysis: <span style="color: #48bb78;">true</span>
+enable_dependency_tracking: <span style="color: #48bb78;">true</span>  ← 영향 범위 파악</pre>
+            </div>
+
+            <div>
+                <strong style="color: #2d3748;">급한 핫픽스:</strong>
+                <pre style="background: white; padding: 15px; border-radius: 8px; margin-top: 10px;">
+enable_ast_analysis: <span style="color: #f56565;">false</span>  ← 빠른 배포 우선
+enable_dependency_tracking: <span style="color: #f56565;">false</span></pre>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
